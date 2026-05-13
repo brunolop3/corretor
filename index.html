@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Posts Imobiliários – Luiz Lopes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand: #1d4ed8;
+            --brand-dark: #1e3a8a;
+            --accent: #f59e0b;
+        }
+        * { font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background: #f0f4ff; }
+
+        .tab-active { background: white; color: var(--brand); font-weight: 700; border-bottom: 3px solid var(--brand); }
+        .tab-inactive { color: #6b7280; background: transparent; border-bottom: 3px solid transparent; }
+
+        .card { background: white; border-radius: 16px; box-shadow: 0 2px 16px rgba(0,0,0,0.07); }
+
+        /* Loading skeleton */
+        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* Textarea resultado */
+        .result-pre { white-space: pre-wrap; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; line-height: 1.8; color: #1f2937; }
+
+        /* Upload area */
+        .upload-zone { border: 2px dashed #cbd5e1; border-radius: 12px; transition: all .25s; }
+        .upload-zone:hover { border-color: var(--brand); background: #eff6ff; }
+
+        /* Pulse on generate button */
+        @keyframes pulse-btn { 0%, 100% { box-shadow: 0 0 0 0 rgba(29,78,216,.4); } 70% { box-shadow: 0 0 0 10px rgba(29,78,216,0); } }
+        .btn-pulse { animation: pulse-btn 2s infinite; }
+
+        /* Spinner inline */
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Notif toast */
+        #toast { position:fixed; bottom:24px; right:24px; z-index:9999; transition: all .3s; transform: translateY(80px); opacity:0; }
+        #toast.show { transform: translateY(0); opacity:1; }
+
+        /* Streaming text effect */
+        .streaming::after { content: '▌'; animation: blink .7s steps(1) infinite; }
+        @keyframes blink { 50% { opacity:0; } }
+
+        /* Platform color accents */
+        .plat-insta { background: linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045); }
+        .plat-stories { background: linear-gradient(135deg, #f77737, #fcb045); }
+        .plat-wpp-short { background: #25d366; }
+        .plat-wpp-long { background: #128c7e; }
+        .plat-mkp { background: linear-gradient(135deg, #1877f2, #0c63d4); }
+        .plat-dm { background: linear-gradient(135deg, #833ab4, #5b51d8); }
+    </style>
+</head>
+<body class="text-gray-800 min-h-screen">
+
+<!-- TOAST -->
+<div id="toast" class="bg-gray-900 text-white px-5 py-3 rounded-xl flex items-center gap-3 shadow-xl text-sm font-medium">
+    <i class="fas fa-check-circle text-green-400"></i>
+    <span id="toastMsg">Copiado!</span>
+</div>
+
+<div class="max-w-5xl mx-auto px-4 py-10">
+
+    <!-- HEADER -->
+    <div class="text-center mb-10">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style="background: var(--brand)">
+            <i class="fas fa-home text-white text-2xl"></i>
+        </div>
+        <h1 class="text-3xl font-extrabold text-gray-900">Gerador de Posts Imobiliários</h1>
+        <p class="text-gray-500 mt-1">Powered by IA · Luiz Lopes <span class="font-semibold text-blue-700">CRECI/MS 8283</span></p>
+    </div>
+
+    <!-- TABS -->
+    <div class="flex gap-1 bg-white rounded-xl p-1 mb-6 shadow-sm max-w-xs">
+        <button onclick="switchTab('gerador')" id="tab-gerador" class="flex-1 py-2 px-4 rounded-lg text-sm transition-all tab-active">
+            <i class="fas fa-magic mr-1"></i> Gerador
+        </button>
+        <button onclick="switchTab('historico')" id="tab-historico" class="flex-1 py-2 px-4 rounded-lg text-sm transition-all tab-inactive">
+            <i class="fas fa-history mr-1"></i> Histórico
+        </button>
+    </div>
+
+    <!-- ===== ABA GERADOR ===== -->
+    <div id="pane-gerador">
+        <div class="card p-6 md:p-8 mb-6" id="editBanner" style="display:none; background:#fef9c3; border:1px solid #fde68a;">
+            <p class="text-yellow-800 font-semibold text-sm"><i class="fas fa-edit mr-2"></i>Modo edição ativo. Preencha e gere novamente para atualizar o post.</p>
+        </div>
+
+        <form id="mainForm" class="space-y-6">
+
+            <!-- BLOCO CORRETOR -->
+            <div class="card p-6">
+                <h2 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="fas fa-user-tie text-blue-600"></i> Dados do Corretor</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="label-field">CRECI/MS *</label>
+                        <input type="text" id="creci" value="8283" required class="input-field">
+                    </div>
+                    <div>
+                        <label class="label-field">WhatsApp *</label>
+                        <input type="text" id="telefone" value="(67) 98429-4178" required class="input-field" oninput="fmtPhone(this)">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="label-field">Logo (PNG transparente) — salva no navegador</label>
+                        <div class="flex items-center gap-3 mt-1">
+                            <label class="cursor-pointer inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition">
+                                <i class="fas fa-upload text-blue-600"></i> Enviar Logo
+                                <input type="file" id="logoInput" accept="image/png" class="hidden">
+                            </label>
+                            <div id="logoPreviewWrap" class="hidden items-center gap-3">
+                                <div class="w-12 h-12 rounded-lg border bg-gray-50 flex items-center justify-center overflow-hidden">
+                                    <img id="logoPreview" src="" class="max-w-full max-h-full object-contain">
+                                </div>
+                                <button type="button" onclick="removeLogo()" class="text-red-500 text-sm hover:underline"><i class="fas fa-trash mr-1"></i>Remover</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BLOCO IMÓVEL -->
+            <div class="card p-6">
+                <h2 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="fas fa-building text-blue-600"></i> Dados do Imóvel</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="label-field">Tipo *</label>
+                        <select id="tipo" required class="input-field">
+                            <option value="" disabled selected>Selecione...</option>
+                            <option>Apartamento</option>
+                            <option>Casa</option>
+                            <option>Terreno</option>
+                            <option>Sala Comercial</option>
+                            <option>Chácara/Sítio</option>
+                            <option>Sobrado</option>
+                            <option>Cobertura</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label-field">Negócio *</label>
+                        <select id="negocio" required class="input-field">
+                            <option>Venda</option>
+                            <option>Aluguel</option>
+                            <option>Aluguel por Temporada</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="label-field">Bairro / Localização *</label>
+                        <input type="text" id="localizacao" required placeholder="Ex: Centro, Campo Grande - MS" class="input-field">
+                    </div>
+                    <div>
+                        <label class="label-field">Quartos</label>
+                        <input type="number" id="quartos" min="0" placeholder="Ex: 3" class="input-field">
+                    </div>
+                    <div>
+                        <label class="label-field">Suítes</label>
+                        <input type="number" id="suites" min="0" placeholder="Ex: 1" class="input-field">
+                    </div>
+                    <div>
+                        <label class="label-field">Vagas de Garagem</label>
+                        <input type="number" id="vagas" min="0" placeholder="Ex: 2" class="input-field">
+                    </div>
+                    <div>
+                        <label class="label-field">Área (m²)</label>
+                        <input type="text" id="area" placeholder="Ex: 120" class="input-field">
+                    </div>
+                    <div>
+                        <label class="label-field">Valor *</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">R$</span>
+                            <input type="text" id="valor" required placeholder="0,00" class="input-field pl-10" oninput="fmtCurrency(this)">
+                        </div>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="label-field">Diferenciais do imóvel <span class="text-gray-400 font-normal">(quanto mais detalhes, melhor o texto gerado)</span></label>
+                        <textarea id="diferencial" rows="3" placeholder="Ex: Varanda gourmet com churrasqueira, piscina, vista para o parque, condomínio com segurança 24h, recém reformado..." class="input-field resize-none"></textarea>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="label-field">Público-alvo <span class="text-gray-400 font-normal">(opcional – ajuda a IA a personalizar)</span></label>
+                        <input type="text" id="publico" placeholder="Ex: Família com filhos, investidor, casal jovem, profissional liberal..." class="input-field">
+                    </div>
+                </div>
+            </div>
+
+            <!-- BLOCO FOTOS -->
+            <div class="card p-6">
+                <h2 class="font-bold text-gray-900 mb-1 flex items-center gap-2"><i class="fas fa-images text-blue-600"></i> Fotos do Imóvel <span class="text-gray-400 font-normal text-sm">(máx. 4)</span></h2>
+                <p class="text-sm text-gray-500 mb-4">As fotos recebem a logo como marca d'água e ficam prontas para baixar.</p>
+                <label for="imageInput" class="upload-zone flex flex-col items-center justify-center w-full h-28 cursor-pointer bg-gray-50 hover:bg-blue-50">
+                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                    <p class="text-sm text-gray-500"><span class="font-semibold text-blue-600">Clique</span> ou arraste as fotos aqui · PNG / JPG</p>
+                    <input id="imageInput" type="file" class="hidden" multiple accept="image/*" onchange="handleImages(event)">
+                </label>
+                <div id="imgPreviews" class="flex gap-2 flex-wrap mt-3"></div>
+                <p id="imgWarn" class="text-red-500 text-xs mt-1 hidden">Apenas as primeiras 4 serão processadas.</p>
+            </div>
+
+            <!-- BOTÕES -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button type="submit" id="generateBtn" class="flex-1 btn-pulse text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 text-lg transition hover:opacity-90 shadow-lg" style="background: var(--brand)">
+                    <i class="fas fa-rocket"></i> Gerar Posts com IA
+                </button>
+                <button type="button" onclick="runTest()" class="sm:w-48 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-4 px-5 rounded-xl flex items-center justify-center gap-2 transition shadow-sm text-sm">
+                    <i class="fas fa-flask text-blue-500"></i> Testar Ferramenta
+                </button>
+                <button type="button" id="cancelEditBtn" onclick="cancelEdit()" class="hidden sm:w-40 bg-red-50 hover:bg-red-100 text-red-700 font-semibold py-4 px-5 rounded-xl flex items-center justify-center gap-2 transition text-sm">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+            </div>
+
+            <!-- LOADING -->
+            <div id="loadingArea" class="hidden card p-6 text-center">
+                <div class="inline-flex items-center gap-3 text-blue-700 font-semibold">
+                    <svg class="spin w-6 h-6" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#dbeafe" stroke-width="4"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#1d4ed8" stroke-width="4" stroke-linecap="round"/></svg>
+                    <span id="loadingMsg">Processando imagens...</span>
+                </div>
+                <div class="mt-4 space-y-2">
+                    <div class="skeleton h-4 w-3/4 mx-auto"></div>
+                    <div class="skeleton h-4 w-1/2 mx-auto"></div>
+                    <div class="skeleton h-4 w-2/3 mx-auto"></div>
+                </div>
+            </div>
+        </form>
+
+        <!-- ===== RESULTADOS ===== -->
+        <div id="resultados" class="hidden mt-8 space-y-6">
+            <div class="text-center">
+                <h2 class="text-2xl font-extrabold text-gray-900">Posts Prontos! 🎉</h2>
+                <p class="text-gray-500 text-sm mt-1">Clique em "Copiar" em qualquer bloco abaixo</p>
+            </div>
+
+            <!-- Galeria de Imagens -->
+            <div class="card p-6">
+                <h3 class="font-bold text-gray-900 mb-1 flex items-center gap-2">
+                    <i class="fas fa-download text-blue-600"></i> Imagens com Logo Prontas
+                </h3>
+                <p class="text-sm text-gray-500 mb-4">Geradas automaticamente para Feed, Stories e fotos individuais com sua marca.</p>
+                <div id="galleryGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
+                <div id="noImgsMsg" class="hidden text-center py-4 text-gray-400 text-sm">Nenhuma foto enviada.</div>
+            </div>
+
+            <!-- Bloco de resultado genérico via template -->
+            <div id="resultBlocks" class="space-y-4"></div>
+
+            <!-- Status Sheets -->
+            <div id="sheetsStatus" class="hidden card p-4 text-sm"></div>
+        </div>
+    </div>
+
+    <!-- ===== ABA HISTÓRICO ===== -->
+    <div id="pane-historico" class="hidden">
+        <div class="card p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">Histórico de Posts</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-gray-500 uppercase bg-gray-50 rounded">
+                        <tr>
+                            <th class="py-3 px-4">Data</th>
+                            <th class="py-3 px-4">Tipo / Negócio</th>
+                            <th class="py-3 px-4">Localização</th>
+                            <th class="py-3 px-4">Valor</th>
+                            <th class="py-3 px-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historicoBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center text-gray-400 text-xs mt-10">Ferramenta exclusiva · Luiz Lopes · CRECI/MS 8283 🏡</footer>
+</div>
+
+<!-- Canvases ocultos -->
+<canvas id="feedCanvas" width="1080" height="1080" class="hidden"></canvas>
+<canvas id="storyCanvas" width="1080" height="1920" class="hidden"></canvas>
+<canvas id="tempCanvas" class="hidden"></canvas>
+
+<!-- Estilos inline para inputs -->
+<style>
+.label-field { display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:4px; }
+.input-field { width:100%; border:1.5px solid #e5e7eb; border-radius:10px; padding:10px 14px; font-size:14px; outline:none; transition:border .2s, box-shadow .2s; background:white; color:#111827; }
+.input-field:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15); }
+select.input-field { cursor:pointer; }
+</style>
+
+<script>
+// ============================================================
+// CONFIGURAÇÃO
+// ============================================================
+const CORRETOR = {
+    nome: "Luiz Lopes",
+    creci: "8283",
+    telefone: "(67) 98429-4178",
+    cidade: "Campo Grande - MS"
+};
+
+// URL do webhook do Google Sheets (opcional)
+const SHEETS_WEBHOOK = "";
+
+// ============================================================
+// ESTADO GLOBAL
+// ============================================================
+let selectedImages = [];
+let userLogoImg = null;
+let generatedLinks = [];
+let editingId = null;
+
+// ============================================================
+// PROMPT DE SISTEMA PARA A API DO CLAUDE
+// ============================================================
+function buildSystemPrompt() {
+    return `Você é um especialista em marketing imobiliário e copywriting para redes sociais no Brasil, com foco no mercado de Campo Grande - MS.
+
+Seu trabalho é criar textos de alta conversão para o corretor ${CORRETOR.nome} (CRECI/MS ${CORRETOR.creci}), telefone ${CORRETOR.telefone}.
+
+## DIRETRIZES GERAIS DE ESCRITA
+
+### Tom e Voz
+- Tom: próximo, confiante e entusiasmado — como um corretor experiente que encontrou a oportunidade certa para o cliente
+- Evite frases genéricas como "Excelente oportunidade", "Não perca tempo", "Imóvel dos seus sonhos" — são clichês batidos que o mercado ignora
+- Use linguagem natural, como se o Luiz estivesse falando pessoalmente
+- Empregue gatilhos emocionais: pertencimento, família, segurança, conquista, realização
+
+### Gatilhos de Marketing que DEVEM aparecer de forma natural
+- Escassez/urgência (quando aplicável): "última unidade", "poucos disponíveis na região"
+- Ancoragem de valor: destaque o valor pelo m², o custo-benefício, o que o imóvel entrega pelo preço
+- Prova implícita: referências ao bairro valorizado, infraestrutura, vizinhança
+- Transformação: o que muda na vida do comprador ao adquirir esse imóvel
+
+### O que NUNCA fazer
+- Não use excesso de emojis (máx 4 por bloco de texto)
+- Não repita as características técnicas de forma robótica (transforme em benefícios)
+- Não use letras maiúsculas em bloco no meio do texto
+- Não use pontos de exclamação em excesso (máx 2 por texto)
+- Não adicione hashtags em nenhum dos textos gerados.
+
+## FORMATOS DE OUTPUT
+
+Você SEMPRE retornará um JSON válido com esta estrutura exata (sem markdown, sem texto fora do JSON):
+
+{
+  "instagram_feed": "...",
+  "instagram_stories": "...",
+  "whatsapp_curto": "...",
+  "whatsapp_detalhado": "...",
+  "marketplace": "...",
+  "dm_privado": "..."
+}
+
+### Especificações por plataforma:
+
+**instagram_feed** (Feed Instagram/Facebook):
+- 150 a 250 palavras
+- Abre com uma frase de impacto que NÃO seja genérica — pode ser uma pergunta, uma afirmação sobre estilo de vida, ou um cenário que o leitor se imagine
+- Bullet list com os atributos do imóvel transformados em benefícios (use • como marcador)
+- Preço em destaque
+- CTA para entrar em contato ou agendar visita
+- Inclua os dados de contato do Luiz no final
+
+**instagram_stories** (Texto para colar no Stories):
+- Máx 60 palavras — precisa ser LIDO em 3 segundos
+- Formato: título impactante, 2-3 infos-chave, preço, CTA ultra curto
+- Pode usar emojis estratégicos como separadores visuais
+- Nada de hashtag (não funciona bem em stories)
+
+**whatsapp_curto** (Enviar junto com as fotos):
+- Máx 80 palavras
+- Tom ultra pessoal e casual — como uma mensagem de amigo
+- Cria curiosidade sem entregar tudo — o objetivo é gerar uma resposta do lead
+- Deve terminar com uma pergunta aberta que convide a resposta
+
+**whatsapp_detalhado** (Para clientes quentes, com interesse confirmado):
+- 120 a 200 palavras
+- Saudação personalizada e calorosa
+- Apresentação do imóvel com foco nos benefícios
+- Use *negrito* com asteriscos para ênfase (funciona no WhatsApp)
+- Todas as características técnicas
+- CTA claro: agendar visita ou ligar
+- Inclua CRECI no final para transmitir credibilidade
+
+**marketplace** (OLX, Viva Real, ZAP, Facebook Marketplace):
+- 200 a 300 palavras
+- Título: [AÇÃO] Tipo de Imóvel – Bairro/Cidade
+- Foco em SEO: use as palavras que o comprador digitaria no Google/portal
+- Ficha técnica clara com todas as características
+- Descrição do bairro e infraestrutura próxima
+- Condições de negociação se relevante
+- Contato completo no final
+
+**dm_privado** (Mensagem fria para enviar no direct do Instagram ou WhatsApp sem ter foto):
+- Máx 60 palavras
+- Não pode parecer spam ou mensagem em massa
+- Tom: pessoal, discreto, como se o Luiz soubesse o que a pessoa precisa
+- Objetivo: despertar interesse e abrir conversa — NÃO vender direto
+- Deve terminar com uma pergunta aberta`;
+}
+
+// ============================================================
+// CHAMADA À API DO CLAUDE
+// ============================================================
+async function generateTextsWithAI(dados) {
+    const userPrompt = `
+Gere os textos de marketing para o seguinte imóvel:
+
+TIPO: ${dados.tipo}
+NEGÓCIO: ${dados.negocio}
+LOCALIZAÇÃO: ${dados.localizacao}
+${dados.quartos ? `QUARTOS: ${dados.quartos}` : ''}
+${dados.suites ? `SUÍTES: ${dados.suites}` : ''}
+${dados.vagas ? `VAGAS DE GARAGEM: ${dados.vagas}` : ''}
+${dados.area ? `ÁREA ÚTIL: ${dados.area}m²` : ''}
+VALOR: R$ ${dados.valor}
+${dados.diferencial ? `DIFERENCIAIS E DESCRIÇÃO: ${dados.diferencial}` : ''}
+${dados.publico ? `PÚBLICO-ALVO: ${dados.publico}` : ''}
+
+Dados do corretor para incluir nos textos:
+Nome: ${CORRETOR.nome}
+CRECI/MS: ${dados.creci}
+WhatsApp: ${dados.telefone}
+
+Lembre-se: retorne APENAS o JSON válido, sem nenhum texto fora dele.`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            system: buildSystemPrompt(),
+            messages: [{ role: "user", content: userPrompt }]
+        })
+    });
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || "Erro na API");
+    }
+
+    const data = await response.json();
+    const raw = data.content.map(b => b.text || "").join("");
+
+    // Limpa possíveis blocos de código do JSON
+    const clean = raw.replace(/```json|```/g, "").trim();
+    return JSON.parse(clean);
+}
+
+// ============================================================
+// RENDERIZAÇÃO DOS RESULTADOS
+// ============================================================
+const PLATFORMS = [
+    { key: "instagram_feed",    label: "Instagram / Facebook – Feed",      icon: "fab fa-instagram",  cls: "plat-insta",     hint: "Copie e cole diretamente no Instagram ou Facebook." },
+    { key: "instagram_stories", label: "Instagram Stories – Texto Overlay", icon: "fas fa-mobile-alt", cls: "plat-stories",   hint: "Cole como texto fixo no Stories ou use como legenda do swipe up." },
+    { key: "whatsapp_curto",    label: "WhatsApp – Mensagem Curta",         icon: "fab fa-whatsapp",   cls: "plat-wpp-short", hint: "Envie junto com as fotos baixadas acima. Cria curiosidade." },
+    { key: "whatsapp_detalhado",label: "WhatsApp – Mensagem Detalhada",     icon: "fab fa-whatsapp",   cls: "plat-wpp-long",  hint: "Para clientes quentes que já demonstraram interesse." },
+    { key: "marketplace",       label: "Marketplace / Portais (OLX, ZAP…)", icon: "fas fa-store",      cls: "plat-mkp",       hint: "Cole no campo de descrição de qualquer portal imobiliário." },
+    { key: "dm_privado",        label: "DM / Direct – Mensagem Fria",       icon: "fas fa-paper-plane", cls: "plat-dm",       hint: "Para prospecção no direct do Instagram ou WhatsApp sem foto." },
+];
+
+function renderResults(texts) {
+    const container = document.getElementById("resultBlocks");
+    container.innerHTML = "";
+
+    PLATFORMS.forEach(p => {
+        const text = texts[p.key] || "Não gerado.";
+        const blockId = "block-" + p.key;
+
+        const div = document.createElement("div");
+        div.className = "card overflow-hidden";
+        div.innerHTML = `
+            <div class="${p.cls} p-4 text-white flex justify-between items-center">
+                <h3 class="font-bold flex items-center gap-2 text-sm md:text-base">
+                    <i class="${p.icon} text-lg"></i> ${p.label}
+                </h3>
+                <button onclick="copyBlock('${blockId}', this)"
+                    class="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1 transition">
+                    <i class="far fa-copy"></i> Copiar
+                </button>
+            </div>
+            <div class="p-5">
+                <pre id="${blockId}" class="result-pre">${escapeHtml(text)}</pre>
+                <p class="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-100">${p.hint}</p>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function copyBlock(id, btn) {
+    const text = document.getElementById(id).innerText;
+    const orig = btn.innerHTML;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => showCopyFeedback(btn, orig));
+    } else {
+        const ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand("copy"); document.body.removeChild(ta);
+        showCopyFeedback(btn, orig);
+    }
+}
+
+function showCopyFeedback(btn, orig) {
+    btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+    btn.classList.add("bg-green-500/30");
+    showToast("Texto copiado para a área de transferência!");
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove("bg-green-500/30"); }, 2500);
+}
+
+function showToast(msg) {
+    const t = document.getElementById("toast");
+    document.getElementById("toastMsg").textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+// ============================================================
+// PROCESSAMENTO DE IMAGENS (mantido do original + melhorias)
+// ============================================================
+function handleImages(e) {
+    const files = Array.from(e.target.files);
+    const warn = document.getElementById("imgWarn");
+    const prev = document.getElementById("imgPreviews");
+    prev.innerHTML = ""; selectedImages = [];
+
+    if (files.length > 4) { warn.classList.remove("hidden"); selectedImages = files.slice(0,4); }
+    else { warn.classList.add("hidden"); selectedImages = files; }
+
+    selectedImages.forEach(f => {
+        const r = new FileReader();
+        r.onload = ev => {
+            const d = document.createElement("div");
+            d.className = "w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-gray-100";
+            d.innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover">`;
+            prev.appendChild(d);
+        };
+        r.readAsDataURL(f);
+    });
+}
+
+function loadImg(file) {
+    return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = e.target.result; };
+        r.readAsDataURL(file);
+    });
+}
+
+function drawCover(ctx, img, x, y, w, h) {
+    const ir = img.width / img.height, cr = w / h;
+    let sx,sy,sw,sh;
+    if (cr > ir) { sw=img.width; sh=img.width/cr; sx=0; sy=(img.height-sh)/2; }
+    else { sw=img.height*cr; sh=img.height; sx=(img.width-sw)/2; sy=0; }
+    ctx.drawImage(img, sx,sy,sw,sh, x,y,w,h);
+}
+
+function drawWatermark(ctx, logo, W, H) {
+    if (!logo) return;
+    const maxW = W * 0.28;
+    const scale = maxW / logo.width;
+    const lw = logo.width * scale, lh = logo.height * scale;
+    const pad = Math.max(20, W * 0.025);
+    ctx.shadowColor = "rgba(0,0,0,0.55)"; ctx.shadowBlur = 12;
+    ctx.drawImage(logo, W - lw - pad, H - lh - pad, lw, lh);
+    ctx.shadowBlur = 0;
+}
+
+function dataUrlToBlob(dataUrl) {
+    const [meta, b64] = dataUrl.split(",");
+    const mime = meta.match(/:(.*?);/)[1];
+    const bytes = atob(b64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i=0; i<bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    return new Blob([arr], {type: mime});
+}
+
+async function uploadToKappa(blob, name) {
+    const fd = new FormData(); fd.append("file", blob, name);
+    const r = await fetch("https://kappa.lol/api/upload", { method:"POST", body:fd });
+    if (!r.ok) throw new Error("Upload falhou");
+    return (await r.json()).link;
+}
+
+function addToGallery(dataUrl, filename, title) {
+    const g = document.getElementById("galleryGrid");
+    const d = document.createElement("div");
+    d.className = "border border-gray-200 rounded-xl p-3 bg-gray-50 flex flex-col gap-3 hover:shadow-md transition";
+    d.innerHTML = `
+        <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">${title}</p>
+        <div class="bg-white rounded-lg overflow-hidden aspect-square flex items-center justify-center border">
+            <img src="${dataUrl}" class="w-full h-full object-contain">
+        </div>
+        <a href="${dataUrl}" download="${filename}"
+           class="w-full text-white text-sm font-semibold py-2 px-3 rounded-lg text-center flex items-center justify-center gap-2 transition hover:opacity-90 shadow-sm"
+           style="background: var(--brand)">
+            <i class="fas fa-download"></i> Baixar
+        </a>
+    `;
+    g.appendChild(d);
+}
+
+async function processImages(isTest = false) {
+    if (!isTest) generatedLinks = [];
+    const gallery = document.getElementById("galleryGrid");
+    const noMsg = document.getElementById("noImgsMsg");
+    gallery.innerHTML = "";
+
+    if (selectedImages.length === 0) { noMsg.classList.remove("hidden"); return; }
+    noMsg.classList.add("hidden");
+
+    setLoadingMsg("Processando imagens e aplicando logo...");
+
+    const loaded = await Promise.all(selectedImages.map(loadImg));
+    const gap = 10;
+
+    // Feed 1:1
+    const fc = document.getElementById("feedCanvas");
+    const fCtx = fc.getContext("2d");
+    const S = fc.width;
+    fCtx.fillStyle = "#fff"; fCtx.fillRect(0,0,S,S);
+    const n = loaded.length;
+    if (n===1) drawCover(fCtx, loaded[0], 0,0,S,S);
+    else if (n===2) { const w=(S-gap)/2; drawCover(fCtx,loaded[0],0,0,w,S); drawCover(fCtx,loaded[1],w+gap,0,w,S); }
+    else if (n===3) { const lw=(S-gap)*.6, rw=S-lw-gap, rh=(S-gap)/2; drawCover(fCtx,loaded[0],0,0,lw,S); drawCover(fCtx,loaded[1],lw+gap,0,rw,rh); drawCover(fCtx,loaded[2],lw+gap,rh+gap,rw,rh); }
+    else { const w=(S-gap)/2, h=(S-gap)/2; drawCover(fCtx,loaded[0],0,0,w,h); drawCover(fCtx,loaded[1],w+gap,0,w,h); drawCover(fCtx,loaded[2],0,h+gap,w,h); drawCover(fCtx,loaded[3],w+gap,h+gap,w,h); }
+    if (userLogoImg) drawWatermark(fCtx, userLogoImg, S, S);
+    const feedUrl = fc.toDataURL("image/jpeg", 0.9);
+    addToGallery(feedUrl, "mosaico-feed.jpg", "Feed Instagram/Facebook");
+    if (!isTest) generatedLinks.push(await uploadToKappa(dataUrlToBlob(feedUrl), "mosaico-feed.jpg"));
+    else generatedLinks.push("http://simulado/feed.jpg");
+
+    // Story 9:16
+    const sc = document.getElementById("storyCanvas");
+    const sCtx = sc.getContext("2d");
+    sCtx.fillStyle = "#000"; sCtx.fillRect(0,0,sc.width,sc.height);
+    drawCover(sCtx, loaded[0], 0,0, sc.width, sc.height);
+    const grad = sCtx.createLinearGradient(0, sc.height*.5, 0, sc.height);
+    grad.addColorStop(0,"transparent"); grad.addColorStop(1,"rgba(0,0,0,.6)");
+    sCtx.fillStyle = grad; sCtx.fillRect(0, sc.height*.5, sc.width, sc.height*.5);
+    if (userLogoImg) drawWatermark(sCtx, userLogoImg, sc.width, sc.height);
+    const storyUrl = sc.toDataURL("image/jpeg", 0.9);
+    addToGallery(storyUrl, "fundo-story.jpg", "Story 9:16");
+    if (!isTest) generatedLinks.push(await uploadToKappa(dataUrlToBlob(storyUrl), "fundo-story.jpg"));
+    else generatedLinks.push("http://simulado/story.jpg");
+
+    // Individuais com logo
+    const tc = document.getElementById("tempCanvas");
+    const tCtx = tc.getContext("2d");
+    for (let i=0; i<loaded.length; i++) {
+        tc.width = loaded[i].width; tc.height = loaded[i].height;
+        tCtx.drawImage(loaded[i], 0, 0);
+        if (userLogoImg) drawWatermark(tCtx, userLogoImg, tc.width, tc.height);
+        const url = tc.toDataURL("image/jpeg", 0.9);
+        addToGallery(url, `foto-${i+1}.jpg`, `Foto ${i+1} (WhatsApp/Portais)`);
+        if (!isTest) generatedLinks.push(await uploadToKappa(dataUrlToBlob(url), `foto-${i+1}.jpg`));
+        else generatedLinks.push(`http://simulado/foto-${i+1}.jpg`);
+    }
+}
+
+// ============================================================
+// HISTÓRICO
+// ============================================================
+function saveHistory(dados) {
+    let h = JSON.parse(localStorage.getItem("imobHistory")||"[]");
+    if (editingId) {
+        const idx = h.findIndex(p => p.id === editingId);
+        if (idx !== -1) h[idx] = { ...h[idx], ...dados, links: generatedLinks.length ? generatedLinks : h[idx].links };
+    } else {
+        h.unshift({ id: Date.now(), data: new Date().toLocaleDateString("pt-BR"), links: generatedLinks, ...dados });
+    }
+    if (h.length > 50) h = h.slice(0,50);
+    localStorage.setItem("imobHistory", JSON.stringify(h));
+}
+
+function loadHistory() {
+    const body = document.getElementById("historicoBody");
+    const h = JSON.parse(localStorage.getItem("imobHistory")||"[]");
+    if (!h.length) { body.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400">Nenhum post gerado ainda.</td></tr>'; return; }
+    body.innerHTML = h.map(p => `
+        <tr class="border-b hover:bg-gray-50 transition">
+            <td class="py-3 px-4 text-gray-600">${p.data}</td>
+            <td class="py-3 px-4 font-medium">${p.tipo} · ${p.negocio}</td>
+            <td class="py-3 px-4 text-gray-600">${p.localizacao}</td>
+            <td class="py-3 px-4 font-semibold text-blue-700">R$ ${p.valor}</td>
+            <td class="py-3 px-4 flex gap-3">
+                <button onclick="editPost(${p.id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium"><i class="fas fa-edit"></i> Editar</button>
+                <button onclick="deletePost(${p.id})" class="text-red-500 hover:text-red-700 text-sm font-medium"><i class="fas fa-trash-alt"></i></button>
+            </td>
+        </tr>`).join("");
+}
+
+function deletePost(id) {
+    if (!confirm("Excluir este post do histórico?")) return;
+    let h = JSON.parse(localStorage.getItem("imobHistory")||"[]");
+    localStorage.setItem("imobHistory", JSON.stringify(h.filter(p => p.id !== id)));
+    loadHistory();
+}
+
+function editPost(id) {
+    const h = JSON.parse(localStorage.getItem("imobHistory")||"[]");
+    const p = h.find(x => x.id === id);
+    if (!p) return;
+    ["tipo","negocio","localizacao","quartos","suites","vagas","area","valor","diferencial","publico"].forEach(k => {
+        if (document.getElementById(k)) document.getElementById(k).value = p[k] || "";
+    });
+    editingId = id;
+    switchTab("gerador");
+    document.getElementById("editBanner").style.display = "block";
+    document.getElementById("cancelEditBtn").classList.remove("hidden");
+    document.getElementById("generateBtn").innerHTML = '<i class="fas fa-save mr-2"></i> Atualizar Post';
+    document.getElementById("resultados").classList.add("hidden");
+}
+
+function cancelEdit() {
+    editingId = null;
+    document.getElementById("mainForm").reset();
+    document.getElementById("creci").value = CORRETOR.creci;
+    document.getElementById("telefone").value = CORRETOR.telefone;
+    document.getElementById("editBanner").style.display = "none";
+    document.getElementById("cancelEditBtn").classList.add("hidden");
+    document.getElementById("generateBtn").innerHTML = '<i class="fas fa-rocket"></i> Gerar Posts com IA';
+    selectedImages = []; document.getElementById("imgPreviews").innerHTML = "";
+}
+
+// ============================================================
+// SINCRONIZAÇÃO PLANILHA
+// ============================================================
+async function syncSheets(data) {
+    const s = document.getElementById("sheetsStatus");
+    s.classList.remove("hidden");
+    if (!SHEETS_WEBHOOK) {
+        s.className = "card p-4 text-sm bg-yellow-50 border border-yellow-200 text-yellow-800";
+        s.innerHTML = "<i class='fas fa-exclamation-triangle mr-2'></i> Webhook não configurado. Salvo apenas localmente.";
+        return;
+    }
+    s.className = "card p-4 text-sm bg-blue-50 border border-blue-200 text-blue-800";
+    s.innerHTML = "<i class='fas fa-spinner fa-spin mr-2'></i> Sincronizando com a planilha...";
+    try {
+        await fetch(SHEETS_WEBHOOK, { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data) });
+        s.className = "card p-4 text-sm bg-green-50 border border-green-200 text-green-800";
+        s.innerHTML = "<i class='fas fa-check-circle mr-2'></i> Sincronizado com a planilha!";
+    } catch {
+        s.className = "card p-4 text-sm bg-red-50 border border-red-200 text-red-800";
+        s.innerHTML = "<i class='fas fa-times-circle mr-2'></i> Erro ao sincronizar.";
+    }
+}
+
+// ============================================================
+// SUBMISSÃO PRINCIPAL
+// ============================================================
+document.getElementById("mainForm").addEventListener("submit", e => { e.preventDefault(); runGenerate(false); });
+
+function setLoadingMsg(msg) { document.getElementById("loadingMsg").textContent = msg; }
+
+async function runGenerate(isTest = false) {
+    const genBtn = document.getElementById("generateBtn");
+    const testBtn = document.querySelector("[onclick='runTest()']");
+    const cancelBtn = document.getElementById("cancelEditBtn");
+    const loading = document.getElementById("loadingArea");
+    const results = document.getElementById("resultados");
+    const sheetsS = document.getElementById("sheetsStatus");
+
+    genBtn.classList.add("hidden"); testBtn.classList.add("hidden"); cancelBtn.classList.add("hidden");
+    loading.classList.remove("hidden"); results.classList.add("hidden"); sheetsS.classList.add("hidden");
+
+    const dados = {
+        creci:       document.getElementById("creci").value,
+        telefone:    document.getElementById("telefone").value,
+        tipo:        document.getElementById("tipo").value,
+        negocio:     document.getElementById("negocio").value,
+        localizacao: document.getElementById("localizacao").value,
+        quartos:     document.getElementById("quartos").value,
+        suites:      document.getElementById("suites").value,
+        vagas:       document.getElementById("vagas").value,
+        area:        document.getElementById("area").value,
+        valor:       document.getElementById("valor").value,
+        diferencial: document.getElementById("diferencial").value,
+        publico:     document.getElementById("publico").value,
+    };
+
+    try {
+        // 1. Imagens
+        await processImages(isTest);
+
+        // 2. Textos via IA
+        setLoadingMsg("Gerando textos com IA… pode levar alguns segundos.");
+        let texts;
+        if (isTest) {
+            // Mocka textos no teste para não consumir API
+            texts = buildMockTexts(dados);
+        } else {
+            texts = await generateTextsWithAI(dados);
+        }
+
+        // 3. Renderiza
+        renderResults(texts);
+
+        // 4. Histórico
+        saveHistory({ ...dados, texts });
+        const h = JSON.parse(localStorage.getItem("imobHistory")||"[]");
+        syncSheets({ ...h[0], links: generatedLinks });
+
+    } catch (err) {
+        console.error(err);
+        alert("Erro ao gerar textos: " + err.message + "\n\nVerifique se a API key está configurada corretamente.");
+    } finally {
+        genBtn.classList.remove("hidden"); testBtn.classList.remove("hidden");
+        if (editingId) cancelBtn.classList.remove("hidden");
+        loading.classList.add("hidden");
+        results.classList.remove("hidden");
+        if (editingId && !isTest) cancelEdit();
+        if (isTest) cancelEdit();
+        setTimeout(() => results.scrollIntoView({ behavior:"smooth", block:"start" }), 100);
+    }
+}
+
+// ============================================================
+// TESTE COM DADOS MOCK (não consome API)
+// ============================================================
+async function runTest() {
+    document.getElementById("tipo").value = "Casa";
+    document.getElementById("negocio").value = "Venda";
+    document.getElementById("localizacao").value = "Jardim dos Estados, Campo Grande - MS";
+    document.getElementById("quartos").value = "3";
+    document.getElementById("suites").value = "1";
+    document.getElementById("vagas").value = "2";
+    document.getElementById("area").value = "150";
+    document.getElementById("valor").value = "750.000,00";
+    document.getElementById("diferencial").value = "Área de lazer com piscina e churrasqueira, cozinha americana, quintal arborizado, recém reformada.";
+    document.getElementById("publico").value = "Família com filhos";
+
+    const colors = ["#3b82f6","#10b981","#f59e0b","#8b5cf6"];
+    const names = ["Fachada","Sala","Cozinha","Quintal"];
+    selectedImages = await Promise.all(colors.map((c,i) => createColorImg(names[i],c)));
+
+    let origLogo = userLogoImg;
+    if (!userLogoImg) {
+        const lc = document.createElement("canvas"); lc.width=400; lc.height=150;
+        const lx = lc.getContext("2d");
+        lx.fillStyle="#1d4ed8"; lx.beginPath(); lx.roundRect(0,0,400,150,20); lx.fill();
+        lx.fillStyle="#fff"; lx.font="bold 52px sans-serif"; lx.textAlign="center"; lx.textBaseline="middle";
+        lx.fillText("LUIZ LOPES",200,75);
+        const fi = new Image(); fi.src = lc.toDataURL("image/png");
+        await new Promise(r => fi.onload = r);
+        userLogoImg = fi;
+    }
+
+    await runGenerate(true);
+    userLogoImg = origLogo;
+}
+
+function createColorImg(text, color) {
+    const c = document.createElement("canvas"); c.width=800; c.height=600;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle=color; ctx.fillRect(0,0,800,600);
+    ctx.fillStyle="#fff"; ctx.font="bold 64px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(text,400,300);
+    return new Promise(r => c.toBlob(b => r(new File([b], text+".jpg",{type:"image/jpeg"})),"image/jpeg",0.9));
+}
+
+function buildMockTexts(d) {
+    return {
+        instagram_feed: `Morar bem tem um endereço certo — e ele fica em ${d.localizacao}.\n\nEssa ${d.tipo} reúne tudo o que uma família de verdade precisa: espaço, conforto e aquela sensação de chegar em casa.\n\n• ${d.quartos} quartos${d.suites ? ` (${d.suites} suíte)` : ''}\n• ${d.area}m² de área útil\n• ${d.vagas} vagas de garagem\n${d.diferencial ? `• ${d.diferencial}\n` : ''}\n💰 R$ ${d.valor}\n\nQuer conhecer? Me chama que a gente agenda a visita.\n📲 ${d.telefone}\n👨‍💼 ${CORRETOR.nome} · CRECI/MS ${d.creci}`,
+        instagram_stories: `🏡 ${d.tipo.toUpperCase()} EM ${d.localizacao.toUpperCase()}\n\n${d.quartos}Q · ${d.area}m² · ${d.vagas} vagas\n\n💰 R$ ${d.valor}\n\n👆 Chama no direct ou WhatsApp!`,
+        whatsapp_curto: `Oi! Olha esse imóvel que acabou de entrar aqui em ${d.localizacao} — ${d.area}m², ${d.quartos} quartos e ${d.vagas} vagas por R$ ${d.valor}. Tem tudo que você estava procurando?\n\nTe mando mais fotos se quiser! 📸`,
+        whatsapp_detalhado: `Oi, tudo bem?\n\nSeparei uma ${d.tipo.toLowerCase()} que acho que vai te interessar bastante. Fica em *${d.localizacao}* e tem um custo-benefício excelente para a região.\n\n*Características:*\n• ${d.quartos} quartos${d.suites ? ` (${d.suites} suíte)` : ''}\n• ${d.area}m² de área útil\n• ${d.vagas} vagas de garagem\n${d.diferencial ? `• ${d.diferencial}\n` : ''}\n*Valor: R$ ${d.valor}*\n\nEstou disponível para te mostrar pessoalmente quando quiser.\n📞 ${d.telefone}\n_${CORRETOR.nome} · CRECI/MS ${d.creci}_`,
+        marketplace: `[VENDA] ${d.tipo} – ${d.localizacao}\n\n${d.tipo} à venda no bairro ${d.localizacao}, Campo Grande - MS.\n\nDetalhes do imóvel:\n• Tipo: ${d.tipo}\n• Área útil: ${d.area}m²\n• Quartos: ${d.quartos}${d.suites ? ` (${d.suites} suíte)` : ''}\n• Vagas de garagem: ${d.vagas}\n${d.diferencial ? `• Diferenciais: ${d.diferencial}\n` : ''}\n⚡ Valor: R$ ${d.valor}\n\nAtendimento ágil pelo WhatsApp ou ligação:\n📞 ${d.telefone}\nCorretor credenciado ${CORRETOR.nome} · CRECI/MS ${d.creci}`,
+        dm_privado: `Oi! Vi que você tem interesse em imóveis em Campo Grande. Tenho uma ${d.tipo.toLowerCase()} em ${d.localizacao} que pode ser exatamente o que você procura — ${d.area}m², ${d.quartos} quartos, R$ ${d.valor}.\n\nPosso te mandar mais detalhes?`,
+    };
+}
+
+// ============================================================
+// UTILIDADES
+// ============================================================
+function fmtCurrency(input) {
+    let v = input.value.replace(/\D/g,"");
+    if (!v) { input.value=""; return; }
+    v = (parseInt(v)/100).toFixed(2).replace(".",",").replace(/(\d)(?=(\d{3})+(?!\d))/g,"$1.");
+    input.value = v;
+}
+
+function fmtPhone(input) {
+    let v = input.value.replace(/\D/g,"").substring(0,11);
+    if (v.length>10) v = v.replace(/^(\d{2})(\d{5})(\d{4})$/,"($1) $2-$3");
+    else if (v.length>5) v = v.replace(/^(\d{2})(\d{4})(\d{0,4})$/,"($1) $2-$3");
+    else if (v.length>2) v = v.replace(/^(\d{2})(\d{0,5})$/,"($1) $2");
+    input.value = v;
+}
+
+function switchTab(id) {
+    ["gerador","historico"].forEach(t => {
+        document.getElementById("pane-"+t).classList.toggle("hidden", t!==id);
+        const btn = document.getElementById("tab-"+t);
+        btn.className = btn.className.replace(/(tab-active|tab-inactive)/g, "");
+        btn.className += " " + (t===id ? "tab-active" : "tab-inactive");
+    });
+    if (id==="historico") loadHistory();
+}
+
+// Logo
+window.addEventListener("DOMContentLoaded", () => {
+    const saved = localStorage.getItem("corretorLogo");
+    if (saved) setLogoFromUrl(saved);
+});
+
+document.getElementById("logoInput").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => { localStorage.setItem("corretorLogo", ev.target.result); setLogoFromUrl(ev.target.result); };
+    r.readAsDataURL(f);
+});
+
+function setLogoFromUrl(url) {
+    const i = new Image();
+    i.onload = () => {
+        userLogoImg = i;
+        document.getElementById("logoPreview").src = url;
+        document.getElementById("logoPreviewWrap").classList.remove("hidden");
+        document.getElementById("logoPreviewWrap").classList.add("flex");
+    };
+    i.src = url;
+}
+
+function removeLogo() {
+    localStorage.removeItem("corretorLogo");
+    userLogoImg = null;
+    document.getElementById("logoPreviewWrap").classList.add("hidden");
+    document.getElementById("logoInput").value = "";
+}
+</script>
+</body>
+</html>
