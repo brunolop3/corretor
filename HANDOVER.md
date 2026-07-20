@@ -40,4 +40,14 @@ Acesse `http://localhost:3000`.
 - `components/site/` — componentes do site público.
 - `components/admin/` — componentes da área administrativa.
 
+## Notas / pendências
+
+- **Mobile nav (aberto):** Conforme mockup aprovado (nenhuma media query no
+  arquivo de referência), os links secundários do nav (Início/Sobre/Contato)
+  ficam ocultos abaixo do breakpoint `md`; logo e botão WhatsApp continuam
+  visíveis. Isso entra em tensão com o requisito mobile-first quando as
+  páginas `/sobre` e `/contato` existirem (o footer não replica essas rotas).
+  Precisa de decisão do cliente sobre um padrão de navegação mobile — não
+  inventar um menu hambúrguer ou outro elemento sem aprovação.
+
 Este arquivo será atualizado a cada fase do projeto.
