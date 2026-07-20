@@ -97,7 +97,7 @@ HANDOVER.md, ARCHITECTURE.md, README.md
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "15.1.6",
+    "next": "15.5.20",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
@@ -109,8 +109,8 @@ HANDOVER.md, ARCHITECTURE.md, README.md
     "tailwindcss": "3.4.17",
     "postcss": "8.5.1",
     "autoprefixer": "10.4.20",
-    "eslint": "9.18.0",
-    "eslint-config-next": "15.1.6"
+    "eslint": "9.39.5",
+    "eslint-config-next": "15.5.20"
   }
 }
 ```
